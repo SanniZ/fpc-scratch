@@ -1,0 +1,22 @@
+it is a shell script to apply patches of fingerpirnt.
+
+
+diff: it contains all of patches with intel TEE platform.
+src : it contians all of source files updated with intel TEE platform.
+
+usage:
+    1. copy all of files to your project.
+    2. open Terminal and change to root path of project.
+    3. run applypatch.sh.
+
+
+example:
+    root path of project: ~/workspace/master.
+
+    1. copy all of files to project: ~/workspace/mastervendor/intel/hardware/fingerprint/patches
+    2. open Terminal and changed to root path of project:
+       cd ~/workspace/master
+    3. run applypatch.sh:
+       chmod a+x vendor/intel/hardware/fingerprint/patches/applypatch.sh
+       ./vendor/intel/hardware/fingerprint/patches/applypatch.sh
+

@@ -1,0 +1,34 @@
+From ad795ab2545d270acb2101c0b44a7d1396b93678 Mon Sep 17 00:00:00 2001
+From: wangjue <wang.jue@intel.com>
+Date: Thu, 14 Mar 2019 16:02:43 +0800
+Subject: [PATCH] Integrate kernel driver for FPC sensor
+
+Change-Id: I2273238ac4ee900f9ee7e043bba2aafd5c4aa5a9
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ drivers/Kconfig  | 1 +
+ drivers/Makefile | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 3ea6cd9..a8c1191 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -208,4 +208,5 @@ source "drivers/sdw/Kconfig"
+ 
+ source "drivers/dma-buf/hyper_dmabuf/Kconfig"
+ 
++source "drivers/fpc/Kconfig"
+ endmenu
+diff --git a/drivers/Makefile b/drivers/Makefile
+index d066e6e..a0b0f5f 100644
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -177,3 +177,4 @@ obj-$(CONFIG_ANDROID)		+= android/
+ obj-$(CONFIG_NVMEM)		+= nvmem/
+ obj-$(CONFIG_FPGA)		+= fpga/
+ obj-$(CONFIG_SDW)		+= sdw/
++obj-y                           += fpc/
+-- 
+2.7.4
+

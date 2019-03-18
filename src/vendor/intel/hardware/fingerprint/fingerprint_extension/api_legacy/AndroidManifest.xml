@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.fingerprints.extension"
+    android:versionCode="23220124"
+    android:versionName="SW23.2.2.1.24">
+</manifest>

@@ -1,0 +1,28 @@
+From 2dbb7714c6a00b2d01c945b1b959477bdcce69c3 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Thu, 15 Mar 2018 09:15:59 +0800
+Subject: [PATCH] Enable fingerprint TA
+
+Enable fingerpring TA gordon peak.
+
+Change-Id: I8c8b2e2caa77e45a0c163488ff056936f277e390
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ project/product/gordon_peak.mk | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/project/product/gordon_peak.mk b/project/product/gordon_peak.mk
+index c6c243a..1437ab0 100644
+--- a/project/product/gordon_peak.mk
++++ b/project/product/gordon_peak.mk
+@@ -1,6 +1,7 @@
+ # compiled from source
+ TRUSTY_ALL_USER_TASKS += \
+         sand/hwcrypto \
++        sand/fingerprint/build \
+         keymaster \
+         storage \
+         gatekeeper \
+-- 
+2.7.4
+

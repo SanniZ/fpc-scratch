@@ -1,0 +1,35 @@
+From df32fc563da23b51e6a3be52cde5f1d689351843 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Tue, 20 Mar 2018 13:55:13 +0800
+Subject: [PATCH] Add XBIN_PREBUILD_LIB
+
+Add XBIN_PREBUILD_LIB to link prebuild
+library.
+
+It is temporary version to build libfpc1025.a,
+add hard code to build libfpc1025 for fpcfingerprint TA
+it will remove after fix issue of build XBIN files.
+
+Change-Id: I875bfc3365bec5bf4dc0a6f64e12f4cd78d37b5f
+Tracked-On:
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ make/xbin.mk | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/make/xbin.mk b/make/xbin.mk
+index 2e6c9f6..6265e9a 100644
+--- a/make/xbin.mk
++++ b/make/xbin.mk
+@@ -151,7 +151,7 @@ $(XBIN_SYMS_ELF): XBIN_LINKER_SCRIPT := $(XBIN_LINKER_SCRIPT)
+ $(XBIN_SYMS_ELF): $(XBIN_ALL_OBJS) $(XBIN_LINKER_SCRIPT) $(XBIN_CONFIGHEADER)
+ 	@$(MKDIR)
+ 	@echo linking $@
+-	$(NOECHO)$(XBIN_LD) $(XBIN_LDFLAGS) -pie -T $(XBIN_LINKER_SCRIPT) --start-group $(XBIN_ALL_OBJS) --end-group $(XBIN_LIBGCC) -o $@
++	$(NOECHO)$(XBIN_LD) $(XBIN_LDFLAGS) -pie -T $(XBIN_LINKER_SCRIPT) --start-group $(XBIN_ALL_OBJS) --end-group $(XBIN_LIBGCC) $(XBIN_PREBUILD_LIB) -o $@
+ 
+ # And strip it
+ $(XBIN_ELF): XBIN_STRIP := $(XBIN_STRIP)
+-- 
+2.7.4
+

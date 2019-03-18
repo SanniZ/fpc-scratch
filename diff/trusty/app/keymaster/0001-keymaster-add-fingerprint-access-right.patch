@@ -1,0 +1,41 @@
+From 8555cf98629292799e2536f3daf58091af3e2425 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Thu, 3 May 2018 14:30:34 +0800
+Subject: [PATCH] add fingerprint access right
+
+fingerprint module needs to access keymaster for get
+auth token key, added fingerprint uuid to keymaster.
+
+Change-Id: I533eedee2cdba1a985fc277cd15d9848bd915d57
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ ipc/keymaster_ipc.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/ipc/keymaster_ipc.cpp b/ipc/keymaster_ipc.cpp
+index b0c55df..e985381 100644
+--- a/ipc/keymaster_ipc.cpp
++++ b/ipc/keymaster_ipc.cpp
+@@ -40,6 +40,8 @@ using namespace keymaster;
+ uuid_t gatekeeper_uuid = {
+     0x38ba0cdc, 0xdf0e, 0x11e4, {0x98, 0x69, 0x23, 0x3f, 0xb6, 0xae, 0x47, 0x95}};
+ 
++uuid_t fingerprint_uuid = FP_SRV_APP_UUID;
++
+ typedef void (*event_handler_proc_t)(const uevent_t* ev, void* ctx);
+ struct tipc_event_handler {
+     event_handler_proc_t proc;
+@@ -362,7 +364,9 @@ static long keymaster_dispatch_non_secure(keymaster_chan_ctx* ctx, keymaster_mes
+ }
+ 
+ static bool keymaster_port_accessible(uuid_t* uuid, bool secure) {
+-    return !secure || memcmp(uuid, &gatekeeper_uuid, sizeof(gatekeeper_uuid)) == 0;
++    return !secure ||
++		memcmp(uuid, &gatekeeper_uuid, sizeof(gatekeeper_uuid)) == 0 ||
++		memcmp(uuid, &fingerprint_uuid, sizeof(fingerprint_uuid)) == 0;
+ }
+ 
+ static keymaster_chan_ctx* keymaster_ctx_open(handle_t chan, uuid_t* uuid, bool secure) {
+-- 
+2.7.4
+

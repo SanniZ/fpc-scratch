@@ -1,0 +1,36 @@
+From 5968fb6f64c13975882f5499ae82461f34a2b537 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Wed, 9 May 2018 11:00:19 +0800
+Subject: [PATCH 1/4] gordon_peak: add fingerprint HIDL
+
+Added fingerprint HIDL for binder fingerprint service.
+
+Change-Id: If8b7d163010baab6c88a5a1fe886063e6779422e
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ groups/device-specific/gordon_peak/manifest.xml | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/groups/device-specific/gordon_peak/manifest.xml b/groups/device-specific/gordon_peak/manifest.xml
+index fec8172..a7fe1b5 100644
+--- a/groups/device-specific/gordon_peak/manifest.xml
++++ b/groups/device-specific/gordon_peak/manifest.xml
+@@ -291,6 +291,15 @@
+             <instance>sample-all</instance>
+         </interface>
+     </hal>
++    <hal format="hidl">
++        <name>android.hardware.biometrics.fingerprint</name>
++        <transport>hwbinder</transport>
++        <version>2.1</version>
++        <interface>
++            <name>IBiometricsFingerprint</name>
++            <instance>default</instance>
++        </interface>
++    </hal>
+     <sepolicy>
+         <version>27.0</version>
+     </sepolicy>
+-- 
+2.7.4
+

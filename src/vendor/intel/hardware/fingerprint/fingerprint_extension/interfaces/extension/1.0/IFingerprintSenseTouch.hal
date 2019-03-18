@@ -1,0 +1,20 @@
+/**
+* Copyright (c) 2017 Fingerprint Cards AB <tech@fingerprints.com>
+* All rights are reserved.
+* Proprietary and confidential.
+* Unauthorized copying of this file, via any medium is strictly prohibited.
+* Any use is subject to an appropriate license granted by Fingerprint Cards AB.
+*/
+
+package com.fingerprints.extension@1.0;
+
+import SenseTouchConfig;
+import SenseTouchAuthenticationMode;
+
+interface IFingerprintSenseTouch {
+    getForce() generates (uint32_t force);
+    isSupported() generates (bool isSupported);
+    finishCalibration(uint32_t ground, uint32_t threshold) generates (bool result);
+    setAuthMode(SenseTouchAuthenticationMode mode, uint32_t buttonTimeoutMs) generates (bool result);
+    readConfig() generates (SenseTouchConfig senseTouchConfig);
+};

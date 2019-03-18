@@ -1,0 +1,45 @@
+From 47c88a5bb5cf28a72cf4bdcee7d7ba0d4f3078c7 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Mon, 18 Feb 2019 14:12:47 +0800
+Subject: [PATCH 3/4] gordon_peak: enable fingerprint tac modules.
+
+Enable fingerprint tac modules:
+TA_DB_BLOB,
+HW_AUTH,
+
+Change-Id: I1c31b1eec729a073e496f3dca7d51ac1fdac2df5
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ groups/trusty/true/BoardConfig.mk | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
+
+diff --git a/groups/trusty/true/BoardConfig.mk b/groups/trusty/true/BoardConfig.mk
+index 93b4eb4..594c70c 100644
+--- a/groups/trusty/true/BoardConfig.mk
++++ b/groups/trusty/true/BoardConfig.mk
+@@ -42,3 +42,22 @@ BOARD_KERNEL_CMDLINE += cpu_init_udelay=10
+ 
+ TOS_PREBUILT := $(ANDROID_BUILD_TOP)/prebuilts/intel/tos.img
+ EVMM_PREBUILT := $(ANDROID_BUILD_TOP)/prebuilts/intel/multiboot.img
++
++# for fingerprint tac
++FPC_TEE_RUNTIME=TOS
++LIBFPC_NAME=libfpc1028.a
++
++FPC_CONFIG_ENGINEERING=0
++FPC_CONFIG_SENSORTEST=0
++FPC_CONFIG_DEBUG=1
++
++FPC_CONFIG_AFD_STAY_IN_SLEEP=1
++
++# either TA_FS or TA_DB_BLOB
++#FPC_CONFIG_TA_FS=1
++FPC_CONFIG_TA_DB_BLOB=1
++
++FPC_CONFIG_HW_AUTH=1
++FPC_CONFIG_FORCE_SENSOR=0
++FPC_CONFIG_FINGER_LOST_INTERRUPT=0
++#end of fingerprint tac
+-- 
+2.7.4
+

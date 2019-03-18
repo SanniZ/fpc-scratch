@@ -1,0 +1,30 @@
+From 56444aa25faff838f04560870760e6f79063e0c2 Mon Sep 17 00:00:00 2001
+From: wangjue <wang.jue@intel.com>
+Date: Tue, 20 Mar 2018 10:17:36 +0800
+Subject: [PATCH] Integrate kernel driver for FPC sensor
+
+Change-Id: I54306f5329d8e8b24fa01f56414a2b359029739a
+---
+ bxt/android/x86_64_defconfig | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/bxt/android/x86_64_defconfig b/bxt/android/x86_64_defconfig
+index fad4e66..c681e88 100644
+--- a/bxt/android/x86_64_defconfig
++++ b/bxt/android/x86_64_defconfig
+@@ -2694,6 +2694,12 @@ CONFIG_TRUSTY_VIRTIO_IPC=m
+ CONFIG_TRUSTY_BACKUP_TIMER=m
+ CONFIG_WATCHDOG=y
+ CONFIG_WATCHDOG_CORE=y
++
++#
++#FPC
++#
++CONFIG_INPUT_FPC1020_IRQ=y
++
+ # CONFIG_WATCHDOG_NOWAYOUT is not set
+ # CONFIG_WATCHDOG_SYSFS is not set
+ 
+-- 
+2.7.4
+

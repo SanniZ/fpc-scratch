@@ -1,0 +1,14 @@
+/**
+* Copyright (c) 2017 Fingerprint Cards AB <tech@fingerprints.com>
+* All rights are reserved.
+* Proprietary and confidential.
+* Unauthorized copying of this file, via any medium is strictly prohibited.
+* Any use is subject to an appropriate license granted by Fingerprint Cards AB.
+*/
+
+package com.fingerprints.extension@1.0;
+
+interface IVerifyUserCallback {
+    oneway onResult(uint32_t result, uint64_t userId, uint64_t userEntityId, vec<uint8_t> encapsulatedResult);
+    oneway onHelp(uint32_t helpCode);
+};

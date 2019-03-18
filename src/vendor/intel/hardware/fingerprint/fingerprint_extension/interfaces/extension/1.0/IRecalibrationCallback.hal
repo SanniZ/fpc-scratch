@@ -1,0 +1,13 @@
+/**
+* Copyright (c) 2017 Fingerprint Cards AB <tech@fingerprints.com>
+* All rights are reserved.
+* Proprietary and confidential.
+* Unauthorized copying of this file, via any medium is strictly prohibited.
+* Any use is subject to an appropriate license granted by Fingerprint Cards AB.
+*/
+package com.fingerprints.extension@1.0;
+
+interface IRecalibrationCallback {
+    oneway onStatus(uint32_t code, bool imageDecision, uint32_t imageQuality, uint32_t pnQuality, uint32_t progress);
+    oneway onError(uint32_t error);
+};

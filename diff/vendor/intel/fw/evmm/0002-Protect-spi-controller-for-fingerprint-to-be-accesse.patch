@@ -1,0 +1,67 @@
+From 11421dd4592d2ad5e2151358b1ff31cacdb46d48 Mon Sep 17 00:00:00 2001
+From: wangjue <wang.jue@intel.com>
+Date: Tue, 19 Jun 2018 12:11:11 +0800
+Subject: [PATCH 2/2] Protect spi controller for fingerprint to be accessed
+ from Android side
+
+Change-Id: I38a5544e4761fd6a92cb94c6566d95201c39391c
+Tracked-On:
+Signed-off-by: wangjue <wang.jue@intel.com>
+---
+ product/gordon_peak.cfg                 |  3 ++-
+ vmm/modules/trusty_guest/trusty_guest.c | 12 ++++++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/product/gordon_peak.cfg b/product/gordon_peak.cfg
+index 748134b..4dd375e 100644
+--- a/product/gordon_peak.cfg
++++ b/product/gordon_peak.cfg
+@@ -23,7 +23,8 @@ EVMM_CMPL_FLAGS += \
+  -DMODULE_VTD \
+  -DDMAR_MAX_ENGINE=4 \
+  -DMULTI_GUEST_DMA \
+- -DSKIP_DMAR_GPU
++ -DSKIP_DMAR_GPU \
++ -DMODULE_DEV_BLK
+ 
+ #osloader will be loaded by ABL to the +6M memory after evmm_pkg.bin
+ EVMM_CMPL_FLAGS += \
+diff --git a/vmm/modules/trusty_guest/trusty_guest.c b/vmm/modules/trusty_guest/trusty_guest.c
+index dca6c4f..670909a 100644
+--- a/vmm/modules/trusty_guest/trusty_guest.c
++++ b/vmm/modules/trusty_guest/trusty_guest.c
+@@ -34,6 +34,7 @@
+ #include "lib/image_loader.h"
+ 
+ #include "modules/vmcall.h"
++
+ #ifdef MODULE_MSR_ISOLATION
+ #include "modules/msr_isolation.h"
+ #endif
+@@ -53,6 +54,15 @@
+ #include "modules/vtd.h"
+ #endif
+ 
++#ifdef MODULE_DEV_BLK
++#include "modules/dev_blk.h"
++#include "lib/pci.h"
++#endif
++
++#define SPI_BUS 0
++#define SPI_DEV 25
++#define SPI_FUNC 0
++
+ typedef enum {
+ 	TRUSTY_VMCALL_SMC             = 0x74727500,
+ 	TRUSTY_VMCALL_DUMP_INIT       = 0x74727507,
+@@ -404,5 +414,7 @@ void init_trusty_guest(evmm_desc_t *evmm_desc)
+ 	add_to_msr_isolation_list(MSR_FMASK, 0, GUESTS_ISOLATION);
+ 	add_to_msr_isolation_list(MSR_KERNEL_GS_BASE, 0, GUESTS_ISOLATION);
+ #endif
++
++	block_pci_device(0, PCI_DEV(SPI_BUS, SPI_DEV,SPI_FUNC));
+ }
+ 
+-- 
+2.7.4
+

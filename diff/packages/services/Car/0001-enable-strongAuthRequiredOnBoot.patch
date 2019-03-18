@@ -1,0 +1,31 @@
+From 79b506a44d4210a1cc9c98ba414fbee6c3aa3f5a Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Tue, 12 Jun 2018 13:41:49 +0800
+Subject: [PATCH] enable strongAuthRequiredOnBoot
+
+This patch will enable strongAuthRequiredOnBoot to force using password
+to unlock the system for the first time after reboot. It fixes the
+fingerprint unlock issue after system boot.
+
+Change-Id: Ia2044bb261eed56b90e97cf31da96be02989f671
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ car_product/overlay/frameworks/base/core/res/res/values/config.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/car_product/overlay/frameworks/base/core/res/res/values/config.xml b/car_product/overlay/frameworks/base/core/res/res/values/config.xml
+index ca8a8d8..2fa6abb 100644
+--- a/car_product/overlay/frameworks/base/core/res/res/values/config.xml
++++ b/car_product/overlay/frameworks/base/core/res/res/values/config.xml
+@@ -40,7 +40,7 @@
+     <bool name="config_lockDayNightMode">true</bool>
+     <!-- Allow smart unlock immediately after boot because the user shouldn't have to enter a pin
+          code to unlock their car head unit. -->
+-    <bool name="config_strongAuthRequiredOnBoot">false</bool>
++    <bool name="config_strongAuthRequiredOnBoot">true</bool>
+     <!-- Show Navigation Bar -->
+     <bool name="config_showNavigationBar">true</bool>
+ 
+-- 
+2.7.4
+

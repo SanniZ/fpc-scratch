@@ -1,0 +1,21 @@
+/**
+* Copyright (c) 2017 Fingerprint Cards AB <tech@fingerprints.com>
+* All rights are reserved.
+* Proprietary and confidential.
+* Unauthorized copying of this file, via any medium is strictly prohibited.
+* Any use is subject to an appropriate license granted by Fingerprint Cards AB.
+*/
+package com.fingerprints.extension@1.0;
+
+import ISensorTestCallback;
+import ISensorTestCaptureCallback;
+
+interface IFingerprintSensorTest {
+    getSensorInfo() generates (SensorInfo sensorInfo);
+    getSensorTests() generates (vec<SensorTest> sensorTests);
+    runSensorTest(ISensorTestCallback callback, SensorTest test, SensorTestInput input);
+    cancelSensorTest();
+    capture(ISensorTestCaptureCallback callback, bool waitForFinger, bool uncalibrated);
+    cancelCapture();
+};
+

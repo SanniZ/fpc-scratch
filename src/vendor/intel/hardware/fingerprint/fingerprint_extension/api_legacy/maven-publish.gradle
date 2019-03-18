@@ -1,0 +1,110 @@
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+project.ext.versionName = manifestVersionName()
+
+task askCredentials {
+    if (project.hasProperty("FPC_MAVEN_USERNAME") && project.hasProperty("FPC_MAVEN_PASSWORD")) {
+        println "Using defined credentials."
+        System.setProperty("USERNAME", project.getProperty("FPC_MAVEN_USERNAME"))
+        System.setProperty("PASSWORD", project.getProperty("FPC_MAVEN_PASSWORD"))
+    } else {
+        def console = System.console()
+        if (console) {
+            def username = console.readLine('\n\n> Please enter your username: ')
+            def password = console.readPassword('> Please enter your password: ')
+
+            System.setProperty("USERNAME", username)
+            System.setProperty("PASSWORD", new String(password))
+        } else {
+            logger.error "Cannot get console."
+        }
+    }
+}
+
+def isReleaseBuild() {
+    return !(hasProperty('SNAPSHOT') && SNAPSHOT.equals("y"))
+}
+
+def getReleaseRepositoryUrl() {
+    return hasProperty('RELEASE_REPOSITORY_URL') ? RELEASE_REPOSITORY_URL : ""
+}
+
+def getSnapshotRepositoryUrl() {
+    return hasProperty('SNAPSHOT_REPOSITORY_URL') ? SNAPSHOT_REPOSITORY_URL : ""
+}
+
+def getRepositoryUsername() {
+    return System.getProperty("USERNAME")
+}
+
+def getRepositoryPassword() {
+    return System.getProperty("PASSWORD")
+}
+
+afterEvaluate { project ->
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+                pom.groupId = GROUP
+                pom.artifactId = POM_ARTIFACT_ID
+                pom.version = project.ext.versionName
+                pom.packaging = POM_PACKAGING
+
+                print "is release build: " + isReleaseBuild()
+
+                repository(url: getReleaseRepositoryUrl()) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+                snapshotRepository(url: getSnapshotRepositoryUrl()) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+
+                pom.project {
+                    name POM_NAME
+                    packaging POM_PACKAGING
+                }
+
+                //due to a bug that causes the packaging to be aar (we want jar), see https://issues.gradle.org/browse/GRADLE-1285
+                pom.whenConfigured({
+                    pom -> pom.packaging = "jar";
+                });
+                pom.withXml({
+                    z ->
+                        def sb = z.asString();
+                        def a = sb.indexOf("<name"); sb.insert(a, "<packaging>jar</packaging>\n ");
+                }
+                );
+                //end of hack
+            }
+        }
+    }
+
+    uploadArchives.dependsOn 'askCredentials'
+
+    signing {
+        required { isReleaseBuild() && gradle.taskGraph.hasTask("uploadArchives") }
+        sign configurations.archives
+    }
+
+    task jar(type: Jar) {
+        from 'build/intermediates/classes/release/'
+    }
+
+    artifacts {
+        archives jar
+    }
+}
+
+def manifestVersionName() {
+    def manifestFile = file(project.projectDir.absolutePath + '/AndroidManifest.xml')
+    def ns = new groovy.xml.Namespace("http://schemas.android.com/apk/res/android", "android")
+    def xml = new XmlParser().parse(manifestFile)
+
+    if (isReleaseBuild()) {
+        return xml.attributes()[ns.versionName].toString()
+    } else {
+        return xml.attributes()[ns.versionName].toString() + "-SNAPSHOT"
+    }
+}

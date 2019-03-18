@@ -1,0 +1,46 @@
+From 541feec0578d4de824b0bc8d454806eaa48bed88 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Wed, 18 Apr 2018 16:22:38 +0800
+Subject: [PATCH 2/4] fingerprint: config for building fingerprint modules
+
+Enabled to build fingerprint tac, libs and hal modules.
+This patch will build fpc_tac, fingerprint.extension and
+fingerprint hal to system.
+Added android.hardware.fingerprint.xml to enable fingerprint
+service for framework.
+
+Change-Id: I90e8240f50d0856b06e376a798d4f227b114a562
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ groups/trusty/true/product.mk | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/groups/trusty/true/product.mk b/groups/trusty/true/product.mk
+index 73ecdf4..a5c1b94 100644
+--- a/groups/trusty/true/product.mk
++++ b/groups/trusty/true/product.mk
+@@ -32,3 +32,21 @@ PRODUCT_PACKAGES_DEBUG += \
+ PRODUCT_PROPERTY_OVERRIDES += \
+ 	ro.hardware.gatekeeper=trusty \
+ {{/enable_hw_sec}}
++
++PRODUCT_PACKAGES += \
++	fpc_tac \
++	android.hardware.biometrics.fingerprint@2.1 \
++	android.hardware.biometrics.fingerprint-V2.1-java \
++	android.hardware.biometrics.fingerprint-V2.1-java-static \
++	android.hardware.biometrics.fpcfingerprint@2.1-service \
++	com.fingerprints.extension \
++	com.fingerprints.extension.xml \
++	com.fingerprints.extension@1.0 \
++	com.fingerprints.extension@1.0-impl \
++	com.fingerprints.extension-V1.0-java \
++	com.fingerprints.extension-V1.0-java-static \
++	com.fingerprints.fmi \
++
++PRODUCT_COPY_FILES += \
++	frameworks/native/data/etc/android.hardware.fingerprint.xml:system/etc/permissions/android.hardware.fingerprint.xml
++
+-- 
+2.7.4
+

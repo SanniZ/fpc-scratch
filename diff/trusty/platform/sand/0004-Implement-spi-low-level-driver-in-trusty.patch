@@ -1,0 +1,957 @@
+From 1e240b2436c1b741e41efa05129f2103a01c5eee Mon Sep 17 00:00:00 2001
+From: wangjue <wang.jue@intel.com>
+Date: Wed, 13 Mar 2019 14:51:12 +0800
+Subject: [PATCH 4/4] Implement spi low level driver in trusty
+
+Implement driver for SPI controller, it provides APIs
+such as: init, set_ce, read, write and writeread.
+
+Change-Id: I6028a6f862deac5d145bae96362d9d916381b8e2
+Signed-off-by: wangjue <wang.jue@intel.com>
+Signed-off-by: Cliff Cai <cliff.cai@intel.com>
+---
+ include/customized_syscall_table.h           |   5 +
+ include/platform/lpss_spi.h                  | 152 +++++++++++
+ include/platform/spi.h                       |  41 +++
+ lib/spi/spi.c                                | 378 +++++++++++++++++++++++++++
+ lib/spi/spi_reg_access.c                     |  86 ++++++
+ lib/syscall/syscall_x86.c                    | 101 ++++++-
+ lib/trusty_syscall_x86/trusty_syscall_x86.S  |  41 +++
+ lib/trusty_syscall_x86/trusty_syscalls_x86.h |  12 +-
+ platform.c                                   |   2 +
+ rules.mk                                     |   3 +-
+ 10 files changed, 818 insertions(+), 3 deletions(-)
+ create mode 100644 include/platform/lpss_spi.h
+ create mode 100644 include/platform/spi.h
+ create mode 100644 lib/spi/spi.c
+ create mode 100644 lib/spi/spi_reg_access.c
+
+diff --git a/include/customized_syscall_table.h b/include/customized_syscall_table.h
+index c78a30c..b2466f7 100644
+--- a/include/customized_syscall_table.h
++++ b/include/customized_syscall_table.h
+@@ -16,3 +16,8 @@
+ 
+ 
+ DEF_SYSCALL(0xa0, get_device_info, long, 1, trusty_device_info_t *info)
++DEF_SYSCALL(0xa1, trusty_spi_init, void, 0)
++DEF_SYSCALL(0xa2, trusty_spi_set_cs, void, 1, uint8_t flag)
++DEF_SYSCALL(0xa3, trusty_spi_read, int, 2, uint8_t *rx_buff, uint32_t rx_bytes)
++DEF_SYSCALL(0xa4, trusty_spi_write, int, 2, uint8_t *tx_buff, uint32_t tx_bytes)
++DEF_SYSCALL(0xa5, trusty_spi_writeread, int, 4, uint8_t *tx_buff, uint32_t tx_bytes, uint8_t *rx_buff, uint32_t rx_bytes)
+diff --git a/include/platform/lpss_spi.h b/include/platform/lpss_spi.h
+new file mode 100644
+index 0000000..49f2fe1
+--- /dev/null
++++ b/include/platform/lpss_spi.h
+@@ -0,0 +1,152 @@
++/*******************************************************************************
++ * Copyright (c) 2016 Intel Corporation
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *******************************************************************************/
++#ifndef __LPSS_SPI_H__
++#define __LPSS_SPI_H__
++
++#define BIT(nr)         (1UL << (nr))
++
++#define SPI_CS_CONTROL_SW_MODE (1<<0)
++#define SPI_CS_CONTROL_CS_HIGH (1<<1)
++#define SPI_CS0_POL_HI (1<<12)
++#define SPI_CS1_POL_HI (1<<13)
++
++#define SSITF_TFL_BXT_MASK  0x3F0000
++
++#define SSCR0           (0x00)  /* LPSS SPI Control Register 0 */
++#define SSCR1           (0x04)  /* LPSS SPI Control Register 1 */
++#define SSSR            (0x08)  /* LPSS SPI Status Register */
++#define SSITR           (0x0C)  /* LPSS SPI Interrupt Test Register */
++#define SSDR            (0x10)  /* LPSS SPI Data Write/Data Read Register */
++
++#define SSTO            (0x28)  /* LPSS SPI Time Out Register */
++#define SITF            (0x44)  /* LPSS SPI Transmit FIFO Register */
++#define SIRF            (0x48)  /* LPSS SPI Receive FIFO Register */
++#define SCLK            (0x200) /* SPI_CLOCK */
++#define SRESET          (0x204) /* SPI_RESETS */
++#define SCC             (0x224) /* SPI_CS_CONTROL */
++#define SCA             (0x2FC) /* SPI_Capabilities */
++#define LPSS_PRIV_RESETS_FUNC       (1UL << 2)
++#define LPSS_PRIV_RESETS_IDMA       0x3
++
++/* Common PXA2xx bits first */
++#define SSCR0_DSS       (0x0000000f)    /* Data Size Select (mask) */
++#define SSCR0_DataSize(x)  ((x) - 1)    /* Data Size Select [4..16] */
++#define SSCR0_FRF       (0x00000030)    /* FRame Format (mask) */
++#define SSCR0_Motorola  (0x0 << 4)  /* Motorola's Serial Peripheral Interface (SPI) */
++#define SSCR0_TI        (0x1 << 4)  /* Texas Instruments' Synchronous Serial Protocol (SSP) */
++#define SSCR0_National  (0x2 << 4)  /* National Microwire */
++#define SSCR0_ECS       (1 << 6)    /* External clock select */
++#define SSCR0_SSE       (1 << 7)    /* Synchronous Serial Port Enable */
++#define SSCR0_SCR(x)    ((x) << 8)  /* Serial Clock Rate (mask) */
++
++/* PXA27x, PXA3xx */
++#define SSCR0_EDSS  (1 << 20)   /* Extended data size select */
++#define SSCR0_NCS   (1 << 21)   /* Network clock select */
++#define SSCR0_RIM   (1 << 22)   /* Receive FIFO overrrun interrupt mask */
++#define SSCR0_TUM   (1 << 23)   /* Transmit FIFO underrun interrupt mask */
++#define SSCR0_FRDC  (0x07000000)    /* Frame rate divider control (mask) */
++#define SSCR0_SlotsPerFrm(x) (((x) - 1) << 24)  /* Time slots per frame [1..8] */
++#define SSCR0_FPCKE (1 << 29)   /* FIFO packing enable */
++#define SSCR0_ACS   (1 << 30)   /* Audio clock select */
++#define SSCR0_MOD   (1 << 31)   /* Mode (normal or network) */
++
++#define SSCR1_RIE   (1 << 0)    /* Receive FIFO Interrupt Enable */
++#define SSCR1_TIE   (1 << 1)    /* Transmit FIFO Interrupt Enable */
++#define SSCR1_LBM   (1 << 2)    /* Loop-Back Mode */
++#define SSCR1_SPO   (1 << 3)    /* Motorola SPI SSPSCLK polarity setting */
++#define SSCR1_SPH   (1 << 4)    /* Motorola SPI SSPSCLK phase setting */
++#define SSCR1_MWDS  (1 << 5)    /* Microwire Transmit Data Size */
++
++#define SSSR_ALT_FRM_MASK   3   /* Masks the SFRM signal number */
++#define SSSR_TNF    (1 << 2)    /* Transmit FIFO Not Full */
++#define SSSR_RNE    (1 << 3)    /* Receive FIFO Not Empty */
++#define SSSR_BSY    (1 << 4)    /* SSP Busy */
++#define SSSR_TFS    (1 << 5)    /* Transmit FIFO Service Request */
++#define SSSR_RFS    (1 << 6)    /* Receive FIFO Service Request */
++#define SSSR_ROR    (1 << 7)    /* Receive FIFO Overrun */
++
++#define RX_THRESH_DFLT  8
++#define TX_THRESH_DFLT  8
++
++#define SSSR_TFL_MASK   (0xf << 8)  /* Transmit FIFO Level mask */
++#define SSSR_RFL_MASK   (0xf << 12) /* Receive FIFO Level mask */
++
++#define SSCR1_TFT   (0x000003c0)    /* Transmit FIFO Threshold (mask) */
++#define SSCR1_TxTresh(x) (((x) - 1) << 6) /* level [1..16] */
++#define SSCR1_RFT   (0x00003c00)    /* Receive FIFO Threshold (mask) */
++#define SSCR1_RxTresh(x) (((x) - 1) << 10) /* level [1..16] */
++
++/* extra bits in PXA255, PXA26x and PXA27x SSP ports */
++#define SSCR0_TISSP     (1 << 4)    /* TI Sync Serial Protocol */
++#define SSCR0_PSP       (3 << 4)    /* PSP - Programmable Serial Protocol */
++#define SSCR1_TTELP     (1 << 31)   /* TXD Tristate Enable Last Phase */
++#define SSCR1_TTE       (1 << 30)   /* TXD Tristate Enable */
++#define SSCR1_EBCEI     (1 << 29)   /* Enable Bit Count Error interrupt */
++#define SSCR1_SCFR      (1 << 28)   /* Slave Clock free Running */
++#define SSCR1_ECRA      (1 << 27)   /* Enable Clock Request A */
++#define SSCR1_ECRB      (1 << 26)   /* Enable Clock request B */
++#define SSCR1_SCLKDIR   (1 << 25)   /* Serial Bit Rate Clock Direction */
++#define SSCR1_SFRMDIR   (1 << 24)   /* Frame Direction */
++#define SSCR1_RWOT      (1 << 23)   /* Receive Without Transmit */
++#define SSCR1_TRAIL     (1 << 22)   /* Trailing Byte */
++#define SSCR1_TSRE      (1 << 21)   /* Transmit Service Request Enable */
++#define SSCR1_RSRE      (1 << 20)   /* Receive Service Request Enable */
++#define SSCR1_TINTE     (1 << 19)   /* Receiver Time-out Interrupt enable */
++#define SSCR1_PINTE     (1 << 18)   /* Peripheral Trailing Byte Interrupt Enable */
++#define SSCR1_IFS       (1 << 16)   /* Invert Frame Signal */
++#define SSCR1_STRF      (1 << 15)   /* Select FIFO or EFWR */
++#define SSCR1_EFWR      (1 << 14)   /* Enable FIFO Write/Read */
++
++#define SSSR_BCE        (1 << 23)   /* Bit Count Error */
++#define SSSR_CSS        (1 << 22)   /* Clock Synchronisation Status */
++#define SSSR_TUR        (1 << 21)   /* Transmit FIFO Under Run */
++#define SSSR_EOC        (1 << 20)   /* End Of Chain */
++#define SSSR_TINT       (1 << 19)   /* Receiver Time-out Interrupt */
++#define SSSR_PINT       (1 << 18)   /* Peripheral Trailing Byte Interrupt */
++
++#define SSPSP_SCMODE(x)     ((x) << 0)  /* Serial Bit Rate Clock Mode */
++#define SSPSP_SFRMP         (1 << 2)    /* Serial Frame Polarity */
++#define SSPSP_ETDS          (1 << 3)    /* End of Transfer data State */
++#define SSPSP_STRTDLY(x)    ((x) << 4)  /* Start Delay */
++#define SSPSP_DMYSTRT(x)    ((x) << 7)  /* Dummy Start */
++#define SSPSP_SFRMDLY(x)    ((x) << 9)  /* Serial Frame Delay */
++#define SSPSP_SFRMWDTH(x)   ((x) << 16) /* Serial Frame Width */
++#define SSPSP_DMYSTOP(x)    ((x) << 23) /* Dummy Stop */
++#define SSPSP_FSRT          (1 << 25)   /* Frame Sync Relative Timing */
++
++/* PXA3xx */
++#define SSPSP_EDMYSTRT(x)   ((x) << 26)     /* Extended Dummy Start */
++#define SSPSP_EDMYSTOP(x)   ((x) << 28)     /* Extended Dummy Stop */
++#define SSPSP_TIMING_MASK   (0x7f8001f0)
++
++#define SSACD_SCDB      (1 << 3)    /* SSPSYSCLK Divider Bypass */
++#define SSACD_ACPS(x)   ((x) << 4)  /* Audio clock PLL select */
++#define SSACD_ACDS(x)   ((x) << 0)  /* Audio clock divider select */
++#define SSACD_SCDX8     (1 << 7)    /* SYSCLK division ratio select */
++
++/* LPSS SSP */
++#define SSITF           0x44        /* TX FIFO trigger level */
++#define SSITF_TxLoThresh(x) (((x) - 1) << 8)
++#define SSITF_TxHiThresh(x) ((x) - 1)
++
++#define SSIRF           0x48        /* RX FIFO trigger level */
++#define SSIRF_RxThresh(x)   ((x) - 1)
++
++uint32_t lpss_spi_read(uint32_t reg);
++void lpss_spi_write(uint32_t reg, uint32_t val);
++void spi_mmu_init(void);
++
++#endif
+diff --git a/include/platform/spi.h b/include/platform/spi.h
+new file mode 100644
+index 0000000..28314e8
+--- /dev/null
++++ b/include/platform/spi.h
+@@ -0,0 +1,41 @@
++/*******************************************************************************
++ * Copyright (c) 2016 Intel Corporation
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *******************************************************************************/
++#ifndef __SAND_SPI_H__
++#define __SAND_SPI_H__
++
++#include <stdint.h>
++
++#define TIMEOUT 400000
++
++struct spi_tran_data{
++    void *tx;
++    void *tx_end;
++    void *rx;
++    void *rx_end;
++    uint32_t rx_length;
++    uint32_t tx_length;
++    uint32_t bits_per_word;
++    int (*write)(struct spi_tran_data *drv_data);
++    int (*read)(struct spi_tran_data *drv_data);
++};
++
++void spi_init(void);
++void spi_set_cs(uint8_t flag);
++int spi_read(uint8_t *rx_buff, uint32_t rx_bytes);
++int spi_write(uint8_t *tx_buff, uint32_t tx_bytes);
++int spi_writeread(uint8_t *tx_buff, uint32_t tx_bytes, uint8_t *rx_buff, uint32_t rx_bytes);
++
++#endif
+diff --git a/lib/spi/spi.c b/lib/spi/spi.c
+new file mode 100644
+index 0000000..0207026
+--- /dev/null
++++ b/lib/spi/spi.c
+@@ -0,0 +1,378 @@
++/*******************************************************************************
++ * Copyright (c) 2015 Intel Corporation
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *******************************************************************************/
++#include <err.h>
++#include <debug.h>
++#include <string.h>
++#include <platform/lpss_spi.h>
++#include <platform/spi.h>
++#include <platform/sand_defs.h>
++
++static struct spi_tran_data spi_drv_data;
++
++static inline struct spi_tran_data *dev_get_drvdata(void)
++{
++    return &spi_drv_data;
++}
++
++static inline int check_tx_fifo(void)
++{
++
++    int timeout = TIMEOUT;
++
++    while (!(lpss_spi_read(SSSR) & SSSR_TNF)) {
++        if (!--timeout)
++            return ERR_TIMED_OUT ;
++        __asm__ __volatile__("pause":::"memory");
++    }
++    return NO_ERROR;
++}
++
++static inline int check_rx_fifo(void)
++{
++
++    int timeout = TIMEOUT;
++
++    while (!(lpss_spi_read(SSSR) & SSSR_RNE)) {
++        if (!--timeout)
++            return ERR_TIMED_OUT ;
++        __asm__ __volatile__("pause":::"memory");
++    }
++    return NO_ERROR;
++}
++
++
++static int null_writer(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_tx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    lpss_spi_write(SSDR, 0);
++    return ret;
++}
++
++static int null_reader(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_rx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    lpss_spi_read(SSDR);
++    return ret;
++}
++
++static int u8_writer(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_tx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    lpss_spi_write(SSDR, *(uint8_t *)(drv_data->tx));
++    ++drv_data->tx;
++    --drv_data->tx_length;
++    return ret;
++}
++
++static int u8_reader(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_rx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    *(uint8_t *)(drv_data->rx) = lpss_spi_read(SSDR);
++    ++drv_data->rx;
++    --drv_data->rx_length;
++    return ret;
++}
++
++static int u16_writer(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_tx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    lpss_spi_write(SSDR, *(uint16_t *)(drv_data->tx));
++    drv_data->tx += 2;
++    drv_data->tx_length -= 2;
++    return ret;
++}
++
++static int u16_reader(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_rx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    *(uint16_t *)(drv_data->rx) = lpss_spi_read(SSDR);
++    drv_data->rx += 2;
++    drv_data->rx_length -= 2;
++    return ret;
++}
++
++static int u32_writer(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_tx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    lpss_spi_write(SSDR, *(uint32_t *)(drv_data->tx));
++    drv_data->tx += 4;
++    drv_data->tx_length -= 4;
++    return ret;
++}
++
++static int u32_reader(struct spi_tran_data *drv_data)
++{
++    int ret;
++
++    ret = check_rx_fifo();
++    if (ret != NO_ERROR)
++        return ret;
++
++    *(uint32_t *)(drv_data->rx) = lpss_spi_read(SSDR);
++    drv_data->rx += 4;
++    drv_data->rx_length -= 4;
++    return ret;
++}
++
++void spi_set_cs(uint8_t flag)
++{
++    uint32_t val;
++
++    val = lpss_spi_read(SCC);
++    if(flag)
++        val &= ~SPI_CS_CONTROL_CS_HIGH;
++    else
++        val |= SPI_CS_CONTROL_CS_HIGH;
++    lpss_spi_write(SCC, val);
++}
++
++static int spi_check_busy(void)
++{
++    int timeout = TIMEOUT;
++
++    do {
++        __asm__ __volatile__("pause":::"memory");
++    } while ((lpss_spi_read(SSSR) & SSSR_BSY) && --timeout);
++
++    return timeout;
++}
++
++void spi_init(void)
++{
++    uint32_t sscr0, scc;
++    struct spi_tran_data *spi_init_data = dev_get_drvdata();
++    uint32_t bits = spi_init_data->bits_per_word = 8;
++
++    lpss_spi_write(SRESET, 0x7);
++    lpss_spi_write(SCLK, 0x1003);
++    lpss_spi_write(SSCR0, 0);   //stop ssp
++    sscr0 = 0x1300 | SSCR0_DataSize(bits > 16 ? bits - 16 : bits) | SSCR0_SSE
++        | (bits > 16 ? SSCR0_EDSS : 0);
++    lpss_spi_write(SSCR1, 0);
++    scc = lpss_spi_read(SCC);
++    scc |= SPI_CS_CONTROL_SW_MODE;
++    lpss_spi_write(SCC, scc);
++    lpss_spi_write(SSCR0, sscr0);   //enable ssp
++
++}
++
++int spi_read(uint8_t *rx_buff, uint32_t rx_bytes)
++{
++    int rc;
++    struct spi_tran_data *spi_transfer = dev_get_drvdata();
++
++    if((!rx_buff)||(rx_bytes < 1))
++        return ERR_INVALID_ARGS;
++
++    if(!spi_check_busy())
++        return ERR_BUSY;
++
++    spi_transfer->rx = (void *)rx_buff;
++    spi_transfer->rx_end = spi_transfer->rx + rx_bytes;
++    spi_transfer->rx_length = rx_bytes;
++    if (spi_transfer->bits_per_word <= 8) {
++        spi_transfer->read = u8_reader;
++        spi_transfer->write = null_writer;
++    } else if (spi_transfer->bits_per_word <= 16) {
++        spi_transfer->read = u16_reader;
++        spi_transfer->write = null_writer;
++    } else if (spi_transfer->bits_per_word <= 32) {
++        spi_transfer->read = u32_reader;
++        spi_transfer->write = null_writer;
++    }
++
++    spi_set_cs(1);
++
++    while(spi_transfer->rx != spi_transfer->rx_end) {
++        rc = spi_transfer->write(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi write failed with error %d in spi_read\n", rc);
++            goto err;
++        }
++
++        rc = spi_transfer->read(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi read failed with error %d in spi_read\n", rc);
++            goto err;
++        }
++    }
++
++    spi_set_cs(0);
++    return NO_ERROR;
++
++err:
++    spi_set_cs(0);
++    return rc;
++}
++
++int spi_write(uint8_t *tx_buff, uint32_t tx_bytes)
++{
++    int rc;
++    struct spi_tran_data *spi_transfer = dev_get_drvdata();
++
++    if((!tx_buff)||(tx_bytes < 1))
++        return ERR_INVALID_ARGS;
++
++    if(!spi_check_busy())
++        return ERR_BUSY;
++
++    spi_transfer->tx = (void *)tx_buff;
++    spi_transfer->tx_end = spi_transfer->tx + tx_bytes;
++    spi_transfer->tx_length = tx_bytes;
++
++    if (spi_transfer->bits_per_word <= 8) {
++        spi_transfer->read = null_reader;
++        spi_transfer->write = u8_writer;
++    } else if (spi_transfer->bits_per_word <= 16) {
++        spi_transfer->read = null_reader;
++        spi_transfer->write = u16_writer;
++    } else if (spi_transfer->bits_per_word <= 32) {
++        spi_transfer->read = null_reader;
++        spi_transfer->write = u32_writer;
++    }
++
++    spi_set_cs(1);
++
++    while(spi_transfer->tx != spi_transfer->tx_end) {
++        rc = spi_transfer->write(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi write failed with error %d in spi_write\n", rc);
++            goto err;
++        }
++
++        rc = spi_transfer->read(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi read failed with error %d in spi_write\n", rc);
++            goto err;
++        }
++    }
++
++    spi_set_cs(0);
++    return NO_ERROR;
++
++err:
++    spi_set_cs(0);
++    return rc;
++}
++
++int spi_writeread(uint8_t *tx_buff, uint32_t tx_bytes, uint8_t *rx_buff, uint32_t rx_bytes)
++{
++    int rc;
++    uint32_t total_length = tx_bytes + rx_bytes;
++    struct spi_tran_data *spi_transfer = dev_get_drvdata();
++
++    if((!rx_buff)||(rx_bytes < 1)||(!tx_buff)||(tx_bytes < 1))
++        return ERR_INVALID_ARGS;
++
++    if(!spi_check_busy())
++        return ERR_BUSY;
++
++    spi_transfer->rx = (void *)rx_buff;
++    spi_transfer->rx_end = spi_transfer->rx + total_length;
++    spi_transfer->rx_length = total_length;
++    spi_transfer->tx = (void *)tx_buff;
++    spi_transfer->tx_end = spi_transfer->tx + total_length;
++    spi_transfer->tx_length = total_length;
++
++    if (spi_transfer->bits_per_word <= 8) {
++        spi_transfer->read = u8_reader;
++        spi_transfer->write = u8_writer;
++    } else if (spi_transfer->bits_per_word <= 16) {
++        spi_transfer->read = u16_reader;
++        spi_transfer->write = u16_writer;
++    } else if (spi_transfer->bits_per_word <= 32) {
++        spi_transfer->read = u32_reader;
++        spi_transfer->write = u32_writer;
++    }
++
++    spi_set_cs(1);
++
++    while(total_length) {
++        rc = spi_transfer->write(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi write failed with error %d in spi_writeread\n", rc);
++            goto err;
++        }
++
++        rc = spi_transfer->read(spi_transfer);
++        if(rc < 0) {
++            dprintf(CRITICAL, "spi read failed with error %d in spi_writeread\n", rc);
++            goto err;
++        }
++
++        total_length--;
++    }
++
++    spi_set_cs(0);
++    return NO_ERROR;
++
++err:
++    spi_set_cs(0);
++    return rc;
++}
++
++int spi_destroy(void)
++{
++    //TBD
++    return NO_ERROR;
++}
++
++int spi_select_low_freq(uint32_t low_freq)
++{
++    //TBD
++    return NO_ERROR;
++}
++
++int spi_select_high_freq(uint32_t high_freq)
++{
++    //TBD
++    return NO_ERROR;
++}
+diff --git a/lib/spi/spi_reg_access.c b/lib/spi/spi_reg_access.c
+new file mode 100644
+index 0000000..ddf4bd0
+--- /dev/null
++++ b/lib/spi/spi_reg_access.c
+@@ -0,0 +1,86 @@
++/*******************************************************************************
++* Copyright (c) 2016 Intel Corporation
++*
++* Licensed under the Apache License, Version 2.0 (the "License");
++* you may not use this file except in compliance with the License.
++* You may obtain a copy of the License at
++*
++*      http://www.apache.org/licenses/LICENSE-2.0
++*
++* Unless required by applicable law or agreed to in writing, software
++* distributed under the License is distributed on an "AS IS" BASIS,
++* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++* See the License for the specific language governing permissions and
++* limitations under the License.
++*******************************************************************************/
++
++#include <errno.h>
++#include <stdint.h>
++#include <platform/sand.h>
++#include <platform/pci_config.h>
++#include <platform/lpss_spi.h>
++#include <printf.h>
++#include <debug.h>
++#include <arch/x86.h>
++#include <arch/x86/mmu.h>
++#include <arch/mmu.h>
++#include <kernel/vm.h>
++
++#define SPI_BUS 0
++#define SPI_DEV 25
++#define SPI_FUNC 0
++
++uint64_t spi_mmio_base_addr = 0;
++
++void spi_mmu_init(void)
++{
++    uint64_t io_base = 0;
++    arch_flags_t access = ARCH_MMU_FLAG_PERM_NO_EXECUTE |
++        ARCH_MMU_FLAG_UNCACHED | ARCH_MMU_FLAG_PERM_USER;
++    struct map_range range;
++    map_addr_t pml4_table = (map_addr_t)paddr_to_kvaddr(get_kernel_cr3());
++
++    io_base = (uint64_t)(pci_read32(SPI_BUS, SPI_DEV, SPI_FUNC, 0x10) & ~0xF);
++
++    range.start_vaddr = (map_addr_t)(0xFFFFFFFF00000000ULL + (uint64_t)io_base);
++    range.start_paddr = (map_addr_t)io_base;
++    range.size = PAGE_SIZE;
++    x86_mmu_map_range(pml4_table, &range, access);
++
++    spi_mmio_base_addr = range.start_vaddr;
++}
++
++
++static inline uint32_t __raw_read32(uint64_t addr)
++{
++    return *(volatile uint32_t *)addr;
++}
++
++static inline void __raw_write32(uint64_t addr, uint32_t val)
++{
++    *(volatile uint32_t *)addr = val;
++}
++
++uint64_t get_spi_mmio_base(void)
++{
++    uint64_t io_base = spi_mmio_base_addr;
++
++    return io_base;
++}
++
++
++uint32_t lpss_spi_read(uint32_t reg)
++{
++    if (!spi_mmio_base_addr) {
++     spi_mmio_base_addr = get_spi_mmio_base();
++    }
++    return __raw_read32(spi_mmio_base_addr + (uint64_t)reg);
++}
++
++void lpss_spi_write(uint32_t reg, uint32_t val)
++{
++    if (!spi_mmio_base_addr) {
++        spi_mmio_base_addr = get_spi_mmio_base();
++    }
++    __raw_write32(spi_mmio_base_addr + (uint64_t)reg, val);
++}
+diff --git a/lib/syscall/syscall_x86.c b/lib/syscall/syscall_x86.c
+index a55265d..a8437a9 100644
+--- a/lib/syscall/syscall_x86.c
++++ b/lib/syscall/syscall_x86.c
+@@ -23,6 +23,7 @@
+ #include <kernel/mutex.h>
+ #include <platform/sand.h>
+ #include <uapi/err.h>
++#include <platform/spi.h>
+ 
+ #define GET_NONE           0
+ #define GET_BASIC_INFO     (1<<0)  /* For example: platform, num_seeds */
+@@ -183,9 +184,107 @@ long sys_get_device_info(user_addr_t info)
+ 	memset(dev_info, 0, sizeof(trusty_device_info_t));
+ 
+ 	if (ret != NO_ERROR)
+-		panic("failed (%ld) to copy structure to user\n", ret);
++		panic("failed (%d) to copy structure to user\n", ret);
+ 
+ 	free(dev_info);
+ 	return NO_ERROR;
+ }
+ 
++//system call for fingerprint
++void sys_trusty_spi_init(void)
++{
++	spi_init();
++	return;
++}
++
++void sys_trusty_spi_set_cs(bool flag)
++{
++	spi_set_cs(flag);
++	return;
++}
++
++int sys_trusty_spi_read(user_addr_t rx_buff, uint32_t rx_bytes)
++{
++	int ret;
++	uint8_t *buf = malloc(rx_bytes);
++
++	if (!buf) {
++		ret = ERR_NO_MEMORY;
++		goto end;
++	}
++
++	ret = spi_read(buf, rx_bytes);
++	if (ret != NO_ERROR)
++		goto end;
++
++	ret = copy_to_user(rx_buff, buf, rx_bytes);
++	if (ret != NO_ERROR)
++		dprintf(CRITICAL, "failed (%d) to copy structure to user\n", ret);
++end:
++	if(buf)
++		free(buf);
++	return ret;
++}
++
++long sys_trusty_spi_write(user_addr_t tx_buff, uint32_t tx_bytes)
++{
++	int ret;
++	uint8_t *buf = malloc(tx_bytes);
++
++	if (!buf) {
++		ret = ERR_NO_MEMORY;
++		goto end;
++	}
++
++	ret = copy_from_user(buf, tx_buff, tx_bytes);
++	if (ret != NO_ERROR)
++		dprintf(CRITICAL, "failed (%d) to copy structure from user\n", ret);
++
++	ret = spi_write(buf, tx_bytes);
++	if (ret != NO_ERROR)
++		goto end;
++
++end:
++	if(buf)
++		free(buf);
++	return ret;
++
++}
++
++long sys_trusty_spi_writeread(user_addr_t tx_buff, uint32_t tx_bytes,
++	user_addr_t rx_buff, uint32_t rx_bytes)
++{
++	int ret;
++	uint8_t *krx_buf = NULL, *ktx_buf = NULL;
++	uint32_t total_length = tx_bytes + rx_bytes;
++
++	krx_buf = malloc(total_length);
++	if (!krx_buf) {
++		ret = ERR_NO_MEMORY;
++		goto end;
++	}
++	ktx_buf = malloc(total_length);
++	if (!ktx_buf) {
++		ret = ERR_NO_MEMORY;
++		goto end;
++	}
++
++	ret = copy_from_user(ktx_buf, tx_buff, tx_bytes);
++	if (ret != NO_ERROR)
++		dprintf(CRITICAL, "failed (%d) to copy structure from user\n", ret);
++
++	ret = spi_writeread(ktx_buf, tx_bytes, krx_buf, rx_bytes);
++	if (ret != NO_ERROR)
++		goto end;
++
++	ret = copy_to_user(rx_buff + tx_bytes, krx_buf + tx_bytes, rx_bytes);
++	if (ret != NO_ERROR)
++		dprintf(CRITICAL, "failed (%d) to copy structure to user\n", ret);
++
++end:
++	if(ktx_buf)
++		free(ktx_buf);
++	if(krx_buf)
++		free(krx_buf);
++	return ret;
++}
+diff --git a/lib/trusty_syscall_x86/trusty_syscall_x86.S b/lib/trusty_syscall_x86/trusty_syscall_x86.S
+index e9c21e3..c3b676f 100644
+--- a/lib/trusty_syscall_x86/trusty_syscall_x86.S
++++ b/lib/trusty_syscall_x86/trusty_syscall_x86.S
+@@ -45,3 +45,44 @@ FUNCTION(get_device_info)
+     sysenter
+     EPILOG
+     ret
++
++
++FUNCTION(trusty_spi_init)
++    PROLOG
++    movq $__NR_trusty_spi_init, %rax
++    MOV_PARAMS
++    sysenter
++    EPILOG
++    ret
++
++FUNCTION(trusty_spi_set_cs)
++    PROLOG
++    movq $__NR_trusty_spi_set_cs, %rax
++    MOV_PARAMS
++    sysenter
++    EPILOG
++    ret
++
++FUNCTION(trusty_spi_read)
++    PROLOG
++    movq $__NR_trusty_spi_read, %rax
++    MOV_PARAMS
++    sysenter
++    EPILOG
++    ret
++
++FUNCTION(trusty_spi_write)
++    PROLOG
++    movq $__NR_trusty_spi_write, %rax
++    MOV_PARAMS
++    sysenter
++    EPILOG
++    ret
++
++FUNCTION(trusty_spi_writeread)
++    PROLOG
++    movq $__NR_trusty_spi_writeread, %rax
++    MOV_PARAMS
++    sysenter
++    EPILOG
++    ret
+diff --git a/lib/trusty_syscall_x86/trusty_syscalls_x86.h b/lib/trusty_syscall_x86/trusty_syscalls_x86.h
+index 5887903..4f1907f 100644
+--- a/lib/trusty_syscall_x86/trusty_syscalls_x86.h
++++ b/lib/trusty_syscall_x86/trusty_syscalls_x86.h
+@@ -14,7 +14,12 @@
+  * limitations under the License.
+  */
+ 
+-#define __NR_get_device_info		0xa0
++#define __NR_get_device_info				0xa0
++#define __NR_trusty_spi_init 				0xa1
++#define __NR_trusty_spi_set_cs				0xa2
++#define __NR_trusty_spi_read				0xa3
++#define __NR_trusty_spi_write				0xa4
++#define __NR_trusty_spi_writeread			0xa5
+ 
+ #ifndef ASSEMBLY
+ 
+@@ -22,6 +27,11 @@ __BEGIN_CDECLS
+ #include "trusty_device_info.h"
+ 
+ long get_device_info (trusty_device_info_t *info);
++void trusty_spi_init(void);
++void trusty_spi_set_cs(uint8_t flag);
++int trusty_spi_read(uint8_t *rx_buff, uint32_t rx_bytes);
++int trusty_spi_write(uint8_t *tx_buff, uint32_t tx_bytes);
++int trusty_spi_writeread(uint8_t *tx_buff, uint32_t tx_bytes, uint8_t *rx_buff, uint32_t rx_bytes);
+ 
+ __END_CDECLS
+ 
+diff --git a/platform.c b/platform.c
+index 0a491cb..ce40f27 100644
+--- a/platform.c
++++ b/platform.c
+@@ -21,6 +21,7 @@
+ #include <kernel/vm.h>
+ #include <platform/sand.h>
+ #include <platform/vmcall.h>
++#include <platform/lpss_spi.h>
+ 
+ extern int _start;
+ extern int _end;
+@@ -292,4 +293,5 @@ void platform_init(void)
+     x86_mp_init(g_trusty_startup_info.sipi_ap_wkup_addr);
+ #endif
+     platform_update_pagetable();
++    spi_mmu_init();
+ }
+diff --git a/rules.mk b/rules.mk
+index 93f76ed..4b5208a 100644
+--- a/rules.mk
++++ b/rules.mk
+@@ -53,7 +53,8 @@ MODULE_SRCS += \
+ 	$(LOCAL_DIR)/lib/syscall/syscall_x86.c \
+ 	$(LOCAL_DIR)/lib/smc/smc_x86.c \
+ 	$(LOCAL_DIR)/utilities.c \
+-
++	$(LOCAL_DIR)/lib/spi/spi_reg_access.c \
++	$(LOCAL_DIR)/lib/spi/spi.c \
+ 
+ ifeq ($(ATTKB_HECI), 1)
+ MODULE_SRCS += \
+-- 
+2.7.4
+

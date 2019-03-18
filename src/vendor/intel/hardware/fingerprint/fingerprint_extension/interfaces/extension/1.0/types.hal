@@ -1,0 +1,99 @@
+/**
+* Copyright (c) 2017 Fingerprint Cards AB <tech@fingerprints.com>
+* All rights are reserved.
+* Proprietary and confidential.
+* Unauthorized copying of this file, via any medium is strictly prohibited.
+* Any use is subject to an appropriate license granted by Fingerprint Cards AB.
+*/
+
+package com.fingerprints.extension@1.0;
+
+struct SensorInfo {
+    int32_t sensorDieValidFlag;
+    int32_t hardwareId;
+    string lotId;
+    int32_t waferId;
+    int32_t waferPositionX;
+    int32_t waferPositionY;
+    string productionTimestamp;
+    int32_t companionDieValidFlag;
+    int32_t companionChipHardwareId;
+    string companionChipLotId;
+    int32_t vendorHwValidFlag;
+    vec<uint8_t> vendorData;
+    int32_t totalNumOtpBitErrors;
+    int32_t maxNumOtpBitErrorsInByte;
+    int32_t productType;
+};
+
+struct SensorTestResult {
+    int32_t resultCode;
+    string resultString;
+    int32_t errorCode;
+    string errorString;
+    vec<uint8_t> imageData;
+};
+
+struct SensorTest {
+    string name;
+    string description;
+    bool waitForFingerDown;
+    string rubberStampType;
+};
+
+struct SensorTestInput {
+    string testLimitsKeyValuePair;
+};
+
+struct NavigationConfig {
+    uint32_t singleClickMinTimeThreshold;
+    uint32_t holdClickTimeThreshold;
+    uint32_t doubleClickTimeInterval;
+    uint32_t fastMoveTolerance;
+    uint32_t slowSwipeUpThreshold;
+    uint32_t slowSwipeDownThreshold;
+    uint32_t slowSwipeLeftThreshold;
+    uint32_t slowSwipeRightThreshold;
+    uint32_t fastSwipeUpThreshold;
+    uint32_t fastSwipeDownThreshold;
+    uint32_t fastSwipeLeftThreshold;
+    uint32_t fastSwipeRightThreshold;
+};
+
+struct SenseTouchConfig {
+    bool success;
+    uint32_t version;
+    uint32_t ground;
+    uint32_t triggerThreshold;
+    uint32_t untriggerThreshold;
+    bool authTriggerOnDown;
+    bool authTriggerOnUp;
+    uint32_t authButtonTimeoutMs;
+};
+
+// Needs to be in sync with FingerprintSenseTouch.java
+enum SenseTouchAuthenticationMode : uint32_t {
+    NORMAL,
+    ON_FORCE_TRIGGER,
+    ON_FORCE_RELEASE
+};
+
+struct ImageCaptureData {
+    uint32_t mode;
+    uint32_t captureResult;
+    uint32_t identifyResult;
+    uint32_t templateUpdateResult;
+    uint32_t enrollResult;
+    uint32_t cacResult;
+    uint32_t userId;
+    uint32_t remainingSamples;
+    uint32_t coverage;
+    uint32_t quality;
+    vec<uint8_t> rawImage;
+    vec<uint8_t> enhancedImage;
+};
+
+struct SensorSize {
+    uint32_t width;
+    uint32_t height;
+};

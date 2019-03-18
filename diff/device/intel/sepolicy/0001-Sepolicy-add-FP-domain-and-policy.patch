@@ -1,0 +1,73 @@
+From 023b0c41eaf33f77e62bbb44c63750d53f48a5d2 Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Fri, 27 Apr 2018 13:56:54 +0800
+Subject: [PATCH] Sepolicy: add FP domain and policy
+
+To launch FP HAL when system boot,
+we need to add sepolicy by this patch.
+
+Change-Id: I46ee8dacaa24665a7a3fa2b7177ef17f32e9daad
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ trusty/file_contexts              |  2 ++
+ trusty/hal_fingerprint_default.te | 14 ++++++++++++++
+ trusty/hwservice.te               |  4 ++++
+ trusty/hwservice_contexts         |  4 ++++
+ 4 files changed, 24 insertions(+)
+ create mode 100644 trusty/hal_fingerprint_default.te
+ create mode 100644 trusty/hwservice.te
+ create mode 100644 trusty/hwservice_contexts
+
+diff --git a/trusty/file_contexts b/trusty/file_contexts
+index c91d781..7c670e7 100644
+--- a/trusty/file_contexts
++++ b/trusty/file_contexts
+@@ -7,3 +7,5 @@
+ /vendor/bin/intelstorageproxyd    u:object_r:tee_exec:s0
+ 
+ /data/misc/securestorage(/.*)?    u:object_r:tee_data_file:s0
++
++/vendor/bin/hw/android\.hardware\.biometrics\.fpcfingerprint@2\.1-service u:object_r:hal_fingerprint_default_exec:s0
+diff --git a/trusty/hal_fingerprint_default.te b/trusty/hal_fingerprint_default.te
+new file mode 100644
+index 0000000..68e979b
+--- /dev/null
++++ b/trusty/hal_fingerprint_default.te
+@@ -0,0 +1,14 @@
++vndbinder_use(hal_fingerprint_default)
++
++add_hwservice(hal_fingerprint_default, hal_fpc_FingerprintEngineering)
++add_hwservice(hal_fingerprint_default, hal_fpc_FingerprintSensorTest)
++add_hwservice(hal_fingerprint_default, hal_fpc_FingerprintSenseTouch)
++add_hwservice(hal_fingerprint_default, hal_fpc_BiometricsFingerprint)
++
++allow hal_fingerprint_default sysfs:dir r_dir_perms;
++allow hal_fingerprint_default sysfs:file rw_file_perms;
++allow hal_fingerprint_default sysfs_thermal_management:dir r_dir_perms;
++allow hal_fingerprint_default sysfs_thermal_management:file rw_file_perms;
++allow hal_fingerprint_default uhid_device:chr_file rw_file_perms;
++allow hal_fingerprint_default tee_device:chr_file rw_file_perms;
++allow hal_fingerprint_default hal_fingerprint_hwservice:hwservice_manager find;
+diff --git a/trusty/hwservice.te b/trusty/hwservice.te
+new file mode 100644
+index 0000000..135d90d
+--- /dev/null
++++ b/trusty/hwservice.te
+@@ -0,0 +1,4 @@
++type hal_fpc_FingerprintEngineering, hwservice_manager_type;
++type hal_fpc_FingerprintSensorTest, hwservice_manager_type;
++type hal_fpc_FingerprintSenseTouch, hwservice_manager_type;
++type hal_fpc_BiometricsFingerprint, hwservice_manager_type;
+diff --git a/trusty/hwservice_contexts b/trusty/hwservice_contexts
+new file mode 100644
+index 0000000..6991458
+--- /dev/null
++++ b/trusty/hwservice_contexts
+@@ -0,0 +1,4 @@
++com.fingerprints.extension::IFingerprintEngineering	       u:object_r:hal_fpc_FingerprintEngineering:s0
++com.fingerprints.extension::IFingerprintSensorTest	       u:object_r:hal_fpc_FingerprintSensorTest:s0
++com.fingerprints.extension::IFingerprintSenseTouch	       u:object_r:hal_fpc_FingerprintSenseTouch:s0
++com.fingerprints.extension::IBiometricsFingerprint	       u:object_r:hal_fpc_BiometricsFingerprint:s0
+-- 
+2.7.4
+

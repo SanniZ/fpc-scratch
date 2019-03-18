@@ -1,0 +1,40 @@
+From a9d5c8b00a792f91a987758ca4496b1dafbae7de Mon Sep 17 00:00:00 2001
+From: yingbinx <yingbinx.zeng@intel.com>
+Date: Wed, 12 Sep 2018 16:21:19 +0800
+Subject: [PATCH 4/4] fingerprint: added /data/fpc creation and config fpc_irq
+
+/data/fpc is needed by the extension framework.
+Pls refer to integration spec page 5-6.
+(with patch 0004-Added-data-fpc-creation-during-boot.patch)
+
+Config fpc_irq device access right.
+Pls refer to spec in page 5
+(with 0002-Add-access-right-changes.patch).
+
+Change-Id: I760267ece1590c2e8adbeb769d63ea9860b4c31f
+Signed-off-by: yingbinx <yingbinx.zeng@intel.com>
+---
+ groups/trusty/true/init.rc | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/groups/trusty/true/init.rc b/groups/trusty/true/init.rc
+index 8874c75..f2f505f 100644
+--- a/groups/trusty/true/init.rc
++++ b/groups/trusty/true/init.rc
+@@ -15,3 +15,13 @@ on post-fs
+     wait_for_prop modules.trusty.ready true
+     # Update device node r/w attribute
+     chmod 666 /dev/trusty-ipc-dev0
++
++on post-fs-data
++    mkdir /data/fpc 0770 system system
++
++    chown system system /sys/bus/platform/devices/fpc_irq/clk_enable
++    chown system system /sys/bus/platform/devices/fpc_irq/wakeup_enable
++    chown system system /sys/bus/platform/devices/fpc_irq/irq
++    chmod 0200 /sys/bus/platform/devices/fpc_irq/clk_enable
++    chmod 0200 /sys/bus/platform/devices/fpc_irq/wakeup_enable
++    chmod 0600 /sys/bus/platform/devices/fpc_irq/irq
+-- 
+2.7.4
+

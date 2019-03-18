@@ -1,0 +1,26 @@
+From 8c710d9aca85b3982f4c357b449f4a96456b950c Mon Sep 17 00:00:00 2001
+From: wangjue <wang.jue@intel.com>
+Date: Wed, 13 Mar 2019 14:33:07 +0800
+Subject: [PATCH] Protect spi controller for fingerprint to be accessed
+
+Change-Id: If1516dff2460e6b9b86f075c548153e92c4fdfb4
+Signed-off-by: wangjue <wang.jue@intel.com>
+---
+ drivers/spi/spi-pxa2xx.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/spi/spi-pxa2xx.c b/drivers/spi/spi-pxa2xx.c
+index 3f3751e..844ddf2 100644
+--- a/drivers/spi/spi-pxa2xx.c
++++ b/drivers/spi/spi-pxa2xx.c
+@@ -1765,6 +1765,7 @@ static int pxa2xx_spi_probe(struct platform_device *pdev)
+ 	pm_runtime_use_autosuspend(&pdev->dev);
+ 	pm_runtime_set_active(&pdev->dev);
+ 	pm_runtime_enable(&pdev->dev);
++	pm_runtime_forbid(&pdev->dev);
+ 
+ 	/* Register with the SPI framework */
+ 	platform_set_drvdata(pdev, drv_data);
+-- 
+2.7.4
+

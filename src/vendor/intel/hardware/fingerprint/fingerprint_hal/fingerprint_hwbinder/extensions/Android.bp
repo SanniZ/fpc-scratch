@@ -1,0 +1,27 @@
+cc_library_shared {
+    name: "com.fingerprints.extension@1.0-impl",
+    relative_install_path: "hw",
+    proprietary: true,
+    srcs: [
+        "CalibrationCallback.cpp",
+        "FingerprintAuthenticator.cpp",
+        "FingerprintCalibration.cpp",
+        "FingerprintEngineering.cpp",
+        "FingerprintNavigation.cpp",
+        "FingerprintRecalibration.cpp",
+        "FingerprintSenseTouch.cpp",
+        "FingerprintSensorTest.cpp",
+        "ImageCaptureCallback.cpp",
+        "ImageInjectionCallback.cpp",
+        "RecalibrationCallback.cpp",
+        "SensorTestCallback.cpp",
+        "SensorTestCaptureCallback.cpp",
+        "VerifyUserCallback.cpp",
+    ],
+    shared_libs: [
+        "libhidlbase",
+        "libhidltransport",
+        "libutils",
+        "com.fingerprints.extension@1.0",
+    ],
+}
