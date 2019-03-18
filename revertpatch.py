@@ -10,7 +10,7 @@ import os
 import sys
 import subprocess
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 AUTHOR = 'Byng.Zeng'
 
 prj_home = None
@@ -59,30 +59,21 @@ def revert_patches(path):
                 execute_shell(reset_hard)
 
 
-def remove_dir(path, d):
-    p = os.path.join(prj_home, path, d)
-    if os.path.exists(p):
-        print('rm src files :', os.path.join(path, d))
-        execute_shell('rm -rf %s' % p)
-
-
 def remove_src_files(path):
     dirs = ['kernel/bxt/drivers/fpc',
             'trusty/app/sand/fingerprint',
             'trusty/app/sand/fpcfingerprint',
-            'vendor/intel/hardware/fingerprint']
+            'vendor/intel/hardware/fingerprint/fingerprint_extension',
+            'vendor/intel/hardware/fingerprint/fingerprint_hal',
+            'vendor/intel/hardware/fingerprint/fingerprint_libs',
+            'vendor/intel/hardware/fingerprint/fingerprint_tac',
+            'vendor/intel/hardware/fingerprint/Android.bp',
+            'vendor/intel/hardware/fingerprint/Android.mk']
     for d in dirs:
         p = os.path.join(path, d)
         if os.path.exists(p):
-            if 'vendor/intel/hardware/fingerprint' in p:
-                remove_dir(d, 'fingerprint_extension')
-                remove_dir(d, 'fingerprint_hal')
-                remove_dir(d, 'fingerprint_libs')
-                remove_dir(d, 'fingerprint_tac')
-                remove_dir(d, 'Android.bp')
-                remove_dir(d, 'Android.mk')
-            else:
-                remove_dir(d, '')
+            print('rm src files :', d)
+            execute_shell('rm -rf %s' % p)
 
 
 if __name__ == '__main__':
