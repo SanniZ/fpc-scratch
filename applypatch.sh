@@ -44,7 +44,7 @@ function copy_src_files(){
         path=$1/$file
         dir=${path:${#SRC_DIR}}
         cp -rf $1/$file/. ${PRJ_HOME}/$dir
-        echo "  src copied     : ${dir}"
+        echo "    src copied   : ${dir}"
     done
 }
 
