@@ -10,19 +10,48 @@ import os
 import sys
 import subprocess
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
 AUTHOR = 'Byng.Zeng'
 
-prj_home = None
 
-
+# ===============================================================
+# API functions
+# ===============================================================
 def execute_shell(cmd):
     return subprocess.check_output(cmd, shell=True) if cmd else None
 
 
 # revert all of patch.
-def revert_patches(path):
-    gits = {  # git : subject of stop.
+def revert_patches(path, gits):
+    for git, subject in gits.items():
+        get_log = 'git log --pretty=format:%s'
+        reset_hard = 'git reset --hard HEAD~'
+        git_path = os.path.join(path, git)
+        os.chdir(git_path)
+        while True:
+            res = execute_shell(get_log)
+            res = list(res.decode('utf-8').split('\n'))[0]
+            if res == subject:
+                break
+            else:
+                print('revert patch : %s : %s' % (git, res))
+                execute_shell(reset_hard)
+
+
+def remove_src_files(path, srcs):
+    for src in srcs:
+        p = os.path.join(path, src)
+        if os.path.exists(p):
+            print('remove files :', src)
+            execute_shell('rm -rf %s' % p)
+
+
+# ===============================================================
+# ReverFPCtPatch class
+# ===============================================================
+class ReverFPCtPatch(object):
+
+    GITS = {  # git : subject of stop.
         'device/intel/mixins': 'Audio: FW: Update BXT-P to 9.22.03.3662',
         'device/intel/sepolicy': 'recovery: fix sepolicy for access GPU',
         'kernel/bxt': 'i915/fb: use kthread replace async',
@@ -43,44 +72,28 @@ def revert_patches(path):
         'vendor/intel/hardware/fingerprint': 'Initial empty repository',
         # 'vendor/intel/hardware/storage': '',
     }
-    for git, subject in gits.items():
-        get_log = 'git log --pretty=format:%s'
-        reset_hard = 'git reset --hard HEAD~'
-        git_path = os.path.join(path, git)
-        os.chdir(git_path)
-        # print('\n----------------%s----------------' % git)
-        while True:
-            res = execute_shell(get_log)
-            res = list(res.decode('utf-8').split('\n'))[0]
-            if res == subject:
-                break
-            else:
-                print('revert patch : %s : %s' % (git, res))
-                execute_shell(reset_hard)
+
+    SRCS = [
+        'kernel/bxt/drivers/fpc',
+        'kernel/bxt/include/linux/wakelock.h',
+        'trusty/app/sand/fingerprint',
+        'trusty/app/sand/fpcfingerprint',
+        'vendor/intel/hardware/fingerprint/fingerprint_extension',
+        'vendor/intel/hardware/fingerprint/fingerprint_hal',
+        'vendor/intel/hardware/fingerprint/fingerprint_libs',
+        'vendor/intel/hardware/fingerprint/fingerprint_tac',
+        'vendor/intel/hardware/fingerprint/Android.bp',
+        'vendor/intel/hardware/fingerprint/Android.mk']
 
 
-def remove_src_files(path):
-    dirs = ['kernel/bxt/drivers/fpc',
-            'trusty/app/sand/fingerprint',
-            'trusty/app/sand/fpcfingerprint',
-            'vendor/intel/hardware/fingerprint/fingerprint_extension',
-            'vendor/intel/hardware/fingerprint/fingerprint_hal',
-            'vendor/intel/hardware/fingerprint/fingerprint_libs',
-            'vendor/intel/hardware/fingerprint/fingerprint_tac',
-            'vendor/intel/hardware/fingerprint/Android.bp',
-            'vendor/intel/hardware/fingerprint/Android.mk']
-    for d in dirs:
-        p = os.path.join(path, d)
-        if os.path.exists(p):
-            print('rm src files :', d)
-            execute_shell('rm -rf %s' % p)
-
-
+# ===============================================================
+# main entrance
+# ===============================================================
 if __name__ == '__main__':
     try:
-        prj_home = os.path.abspath(sys.argv[1])
+        root = os.path.abspath(sys.argv[1])
     except IndexError:
         print('Error, no root path of source code!')
     else:
-        revert_patches(prj_home)
-        remove_src_files(prj_home)
+        revert_patches(root, ReverFPCtPatch.GITS)
+        remove_src_files(root, ReverFPCtPatch.SRCS)
