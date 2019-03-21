@@ -1,0 +1,12 @@
+To build 1AND source code with FP feature, we need to use applypatch.sh to apply
+the relevant patches first.
+
+src : it contains the code directory for FP HAL/tac, FP TA, fpc-irq driver.
+diff: it contains the necessary patches for FP feature which are not in HAL/TA/Driver directory.
+
+The steps to use the script:
+    1. mkdir AOSP_CODE
+    2. repo init/sync
+    3. In current directory, chmod and then run ./XXX/applypatch.sh
+    4. source, lunch, make flashfiles to build the image
+
