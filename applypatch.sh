@@ -25,7 +25,7 @@ function applypatch(){
     fi
 }
 
-function apply_patch_files(){
+function apply_patch_files_V0(){
     for file in `ls $1`
     do
         if [ -d $1"/"$file ] ; then
@@ -35,6 +35,13 @@ function apply_patch_files(){
                 applypatch $1"/"$file
             fi
         fi
+    done
+}
+
+function apply_patch_files(){
+    for file in `find $1 -name *.patch`
+    do
+        applypatch $file
     done
 }
 
